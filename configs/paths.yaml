@@ -1,0 +1,30 @@
+# ============================================================
+# Path Configuration — edit these to match your environment
+# ============================================================
+
+# Base LLM checkpoint (e.g. meta-llama/Llama-3.1-8B)
+llama_base_model: /path/to/llama3.1-8b
+
+# VLM checkpoint (e.g. Qwen/Qwen2.5-VL-7B-Instruct)
+qwen_vl_base_model: /path/to/Qwen2.5-VL-7B-Instruct
+
+# Data root — contains final.jsonl per dataset
+data_root: /path/to/data
+# e.g. ${data_root}/Arts/final.jsonl
+
+# Split root — contains .npz split files
+split_root: /path/to/splits
+# e.g. ${split_root}/Arts_both_split.npz
+
+# Image root — contains product images
+image_root: /path/to/images
+# e.g. ${image_root}/Arts_all/
+
+# Image description outputs from img2txt pipeline
+img_desc_root: /path/to/image_descriptions
+
+# Output root for checkpoints and predictions
+output_root: /path/to/outputs
+
+# Tokenizer (usually same as llama_base_model)
+tokenizer_path: /path/to/llama3.1-8b

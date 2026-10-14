@@ -1,0 +1,23 @@
+__pycache__/
+*.pyc
+*.pyo
+wandb/
+*.log
+*.out
+*.err
+*.ckpt
+*.safetensors
+*.bin
+*.pt
+.DS_Store
+
+# Large data files — use Git LFS or host on HuggingFace
+data/Arts/final.jsonl
+data/Sports/final.jsonl
+data/Toys/final.jsonl
+data/other_datasets/
+data/*/img2txt/*.jsonl
+
+# Outputs
+outputs/
+results/
