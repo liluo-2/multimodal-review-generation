@@ -26,7 +26,7 @@ Ship two tracks: `full` and `answerable`. Rule- or LLM-filter out shipping compl
 600–1,300 per cell is below what BLEU/CIDEr variance can support. Target ≥5,000 per cell, or ship bootstrap confidence intervals as mandatory (your `_std` and `n_draws` columns are already halfway there).
 
 **4. Two official decoding tracks.**
-`greedy` and `best-of-5 (temp=0.8, top_p=0.9)`. Your own results show methods reverse rank between them. A benchmark that reports only one is hiding a real effect.
+`greedy` and `sampled (mean over 5 draws, temp=0.8, top_p=0.9)`. Your own results show methods reverse rank between them. A benchmark that reports only one is hiding a real effect.
 
 **5. Leakage audit.**
 Users disjoint across train/test; every history item strictly earlier than its target; no target review appearing in any user's history.
@@ -78,10 +78,10 @@ Written in the register of your reference bullet. Pick 3–5 that match what you
 - Built an end-to-end multimodal review generation framework integrating BLIP-2 encoders, a multi-head GMU gating network, an MLP projector, and LLaMA-3, with learnable modality vectors enabling inference under missing text or image inputs; diagnosed gating-weight collapse across 3 datasets to establish that embedding-level fusion underperforms prompt-level injection.
 
 **The headline result — use this one**
-- Designed a two-stage optimization pipeline (multi-teacher on-policy distillation → GRPO with reward-thresholded teacher/ground-truth fallback) for a unified review generator serving text-only, image-only, and multimodal inputs; **improved BLEU by 21%, ROUGE-2 by 23%, ROUGE-1 by 13%, and BERTScore by 8%** over the strongest baseline across Amazon review categories.
+- Built a unified review generator serving text-only, image-only, and multimodal product inputs from one checkpoint via mixed-scenario SFT on LLaMA-3.1-8B followed by GRPO with a scenario-normalized composite reward; **improved BLEU by 32% and ROUGE-2 by 28% on multimodal inputs and ROUGE-2 by 19% on text-only inputs** over the strongest baseline, with GRPO improving every SFT initialization tested.
 
 **Pipeline / efficiency**
-- Replaced an end-to-end VLM backbone with a Qwen2.5-VL image-to-text pipeline feeding LLaMA-3, **cutting input length from ~11k to ~4k tokens and training time by over 50%** while outperforming the VLM on all three input modalities.
+- Replaced end-to-end VLM backbones with a Qwen2.5-VL image-captioning pipeline feeding LLaMA-3.1, outperforming the VLM on multimodal inputs across Arts, Sports, and Toys (BLEU +21% to +69%) while keeping a single text-only model for all input scenarios.
 
 **Multi-task learning**
 - Investigated gradient interference in 3-way multimodal multi-task training through ratio training, curriculum learning, modality dropout, hard-routing MoE, and modality-specific LM heads; established that task-specific capacity must live in hidden-representation space rather than the vocabulary projection layer, supported by a 500× parameter-scale mismatch analysis between LM heads and LoRA adapters.
@@ -90,7 +90,7 @@ Written in the register of your reference bullet. Pick 3–5 that match what you
 - Implemented GRPO with a modality-normalized composite reward (BLEU/ROUGE/BERTScore) and per-sample routing between policy-gradient, knowledge-distillation, and cross-entropy objectives; identified and corrected reward-design failures including corpus-level CIDEr misuse causing full model collapse.
 
 **Analysis / data**
-- Ran modality-attribution analysis with a fine-tuned Qwen2.5-VL over 13.9k reviews, establishing that real review data splits roughly evenly across text-explained, image-explained, and jointly-explained samples, and used this to define a three-scenario evaluation protocol.
+- Ran modality-attribution analysis with a fine-tuned Qwen2.5-VL over 13.9k reviews; among the 3.3k with a strictly best input configuration, text-, image-, and jointly-explained reviews were nearly equally represented, motivating a three-scenario evaluation protocol.
 - Diagnosed persistent image-only underperformance as an input information bottleneck rather than a training failure via zero-overlap content-word analysis (41% vs 30% for text) and metric-divergence tracking, ruling out the hallucination hypothesis through reward ablation.
 - Conducted case-level analysis of user-history contribution across 27 annotated samples, establishing that history transfers **writing templates rather than product knowledge**, and that recency outperforms semantic retrieval by preserving ongoing usage context, current vocabulary, and recent sentence structure.
 

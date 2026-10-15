@@ -12,7 +12,7 @@ We asked one question and spent 14 months answering it properly:
 
 > Real product data comes in three flavors — **text-only**, **image-only**, and **both**. Existing review generators handle exactly one of them. Can a single model handle all three, and does adding vision actually help?
 
-**Answer: partially.** Mix-SFT + GRPO gives a single model that beats every baseline on text-only and both (BLEU +21%, ROUGE-2 +23%, ROUGE-1 +13%). But image-only remains structurally hard, and we traced that to an **information bottleneck in the input**, not a modeling failure. Along the way we ruled out — with mechanistic evidence, not just worse numbers — embedding-level fusion, retrieval-based history selection, LLM-extracted preference profiles, modality-specific MoE, modality-specific LM heads, and multi-teacher on-policy distillation.
+**Answer: partially.** Mix-SFT + GRPO gives a single model that beats the strongest baseline on every metric for text-only and both (both: BLEU +32.0%, ROUGE-2 +27.7%; text-only: ROUGE-2 +18.5%), with smaller gains on image-only. We traced the smaller image-only gains to an **information bottleneck in the input**, not a modeling failure. Along the way we ruled out — with mechanistic evidence, not just worse numbers — embedding-level fusion, retrieval-based history selection, LLM-extracted preference profiles, modality-specific MoE, modality-specific LM heads, and multi-teacher on-policy distillation.
 
 The final method works. It just isn't novel enough to be a paper. So this repo is written as **a benchmark and a set of negative results** instead.
 
@@ -70,7 +70,7 @@ A clean 2×2 on Movies, then extended to 8–10 categories:
 3. **Image noise.** We used the product's *first* image, unfiltered. Much of what's visible is irrelevant to a review ("they all come in a plastic case").
 
 ### The pivot that mattered
-To test cause 2 properly we fine-tuned Qwen2.5-VL to answer: *given only text / only image / both, which one best explains this review?* Over 13,900 samples:
+To test cause 2 properly we fine-tuned Qwen2.5-VL to generate the review from item information alone under three input configurations (text only / image only / both). Of 13,900 reviews, 3,305 have one configuration that is strictly best on **every** metric; among these the split is nearly even:
 
 | Best-explained by | count |
 |---|---|
@@ -154,7 +154,7 @@ VLM input lengths this replaced:
 | Sports | 10,572 | 21,047 | 15,814 | 7h58m |
 | Arts | 10,570 | 20,465 | 15,309 | 6h43m |
 
-*Minor finding*: splitting `%Product text description:` and `%Product img description:` into separate fields performed slightly **worse** than the merged phrasing. The model doesn't benefit from being told which modality a sentence came from.
+*Minor finding*: keeping `%Product description:` and `%Image description:` as **separate** fields outperformed a single merged "description and image" field (Arts both BLEU 0.0457 vs 0.0371), most clearly in the img-only scenario. The final prompt uses separate fields.
 
 ---
 
@@ -272,7 +272,7 @@ h_out = h + MLP_{input_type}(h)     MLP: Linear(hidden, bottleneck) → ReLU →
 
 Deliberately **no router, no softmax gate, no load-balancing loss** — the input type is known, so routing is sample-level and hard. Batch supports per-sample expert selection.
 
-**❌ Negative result 4 — performance dropped on most dataset × modality cells.**
+**❌ Negative result 4 — mixed at best.** On Arts it helps text-only (ROUGE-2 +17.8%) but sharply hurts img-only (BLEU −43.5%); on Sports and Toys it lowers most metrics.
 
 **(b) Modality-specific LM heads.** Shared backbone, three `lm_head`s (text / img / both), each initialized from the pretrained `lm_head` rather than randomly.
 
@@ -323,9 +323,9 @@ $$\mathcal{L}_{\text{OPD}}(\theta)=\mathbb{E}_{x\sim\mathcal D,\ \hat y\sim\pi_\
 
 ### ⭐ The finding that reframed the evaluation
 
-MOPD **loses under greedy decoding but wins under sampling.** With 5 samples at `temp=0.8, top_p=0.9`, text-only and img-only clearly beat the best baseline.
+MOPD **loses under greedy decoding but wins under sampled decoding.** Averaged over 5 sampled outputs (`temp=0.8, top_p=0.9`), per-sample MOPD is the best model on every img-only metric and on text-only BLEU/ROUGE-2.
 
-> On-policy distillation improves the **quality of the output distribution**, not the single highest-probability trajectory. Merging several teachers' generation modes widens the distribution to cover more good candidates — which is exactly what Best-of-N exploits and what greedy decoding throws away.
+> On-policy distillation improves the **quality of the output distribution**, not the single highest-probability trajectory. Merging several teachers' generation modes widens the distribution to cover more good candidates — which sampling exposes and greedy decoding hides.
 >
 > Every review-generation paper reports greedy only. Under the field's own protocol, this method looks like a failure.
 
@@ -350,13 +350,13 @@ student generates G rollouts → mean reward
 
 ### ✅ Positive result 2 — the headline numbers
 
-**Best configuration: mix-SFT → GRPO** (Arts, greedy decoding, vs. `ReviewLLM img2txt mix`):
+**Best configuration: mix-SFT → GRPO** (Arts, greedy decoding; Δ vs. the strongest baseline for each metric, including Qwen3-VL):
 
 | | BLEU | ROUGE-1 | ROUGE-2 | ROUGE-L | BERTScore | CIDEr |
 |---|---|---|---|---|---|---|
-| **Both** | **+21.1%** | **+13.0%** | **+13.4%** | **+11.1%** | **+5.8%** | +0.7% |
-| **Text-only** | **+9.0%** | **+11.6%** | **+22.9%** | **+9.4%** | **+8.1%** | −5.3% |
-| **Img-only** | −2.0% | +3.1% | −1.9% | −0.5% | +2.8% | −23.5% |
+| **Both** | **+32.0%** | **+16.4%** | **+27.7%** | **+13.4%** | **+8.3%** | **+20.1%** |
+| **Text-only** | **+10.2%** | **+9.7%** | **+18.5%** | **+9.1%** | **+9.3%** | **+2.0%** |
+| **Img-only** | −3.3% | +4.5% | +1.7% | +1.0% | +3.5% | +11.8% |
 
 Pushing `both` harder — **Stage-1 (input-type routing) → GRPO**: BLEU **+39.3%**, ROUGE-2 **+22.3%**, CIDEr **+26.2%**.
 
@@ -416,7 +416,7 @@ Half of this project's difficulty was the metrics.
 
 1. **Per-sample BLEU/CIDEr variance is enormous** (BLEU CV ≈ 50%). Any decision built on per-sample metrics — teacher selection, reward shaping, "which config won" — is partly reading noise.
 2. **CIDEr is a corpus-level metric.** Using it per-sample is a category error that cost us a reward-design cycle and one model collapse.
-3. **Greedy vs. Best-of-N give opposite conclusions** for RL/distillation-trained models. The field reports greedy only.
+3. **Greedy vs. sampled decoding give opposite rankings** for distillation-trained models (sampled = mean over 5 draws at T=0.8, top-p=0.9). The field reports greedy only.
 4. **Split hygiene.** Early mix-training runs had overlap between input types and between train/test. Re-splitting changed conclusions. We also had to define "better" explicitly: **all 5 metrics higher, or 4 higher and 1 tied.**
 5. **Reference noise is systematic**, not incidental — roughly a fifth to a third of "total misses" are unanswerable references.
 6. **Scale.** 600–1,300 training samples per dataset × modality cell amplifies every problem above.
@@ -443,11 +443,11 @@ Half of this project's difficulty was the metrics.
 | # | Finding |
 |---|---|
 | 1 | **img2txt > end-to-end VLM.** Converting product images to natural-language descriptions and feeding an LLM beats a native VLM backbone on every modality, at a fraction of the input length and training cost. |
-| 2 | **mix-SFT + GRPO is the best single model.** BLEU +21%, ROUGE-1 +13%, ROUGE-2 +23%, BERTScore +8% over the strongest baseline on both and text-only, from one checkpoint serving all three input scenarios. |
+| 2 | **mix-SFT + GRPO is the best single model.** Both: BLEU +32.0%, ROUGE-2 +27.7%, BERTScore +8.3%; text-only: ROUGE-2 +18.5%, BERTScore +9.3% over the strongest baseline; from one checkpoint serving all three input scenarios. |
 | 3 | **History supplies writing templates, not product knowledge** — a reframing of what "personalization" means in this task, supported by case-level analysis. |
 | 4 | **Recency beats semantic relevance** for history selection, because recent reviews carry the user's ongoing project context, current vocabulary, and latest sentence patterns. |
-| 5 | **On-policy distillation improves the output distribution, not the greedy trajectory** — visible only under Best-of-N, invisible under the field's standard protocol. |
-| 6 | **Real review data is modality-heterogeneous** (≈1/3 text-explained, 1/3 image-explained, 1/3 both), which motivates the three-scenario benchmark design. |
+| 5 | **On-policy distillation shapes the output distribution more than the greedy trajectory** — per-sample MOPD is weakest under greedy decoding but strongest under sampled decoding on img-only. |
+| 6 | **Real review data is modality-heterogeneous**: among the 3,305 of 13,900 reviews with a strictly best input configuration, ≈1/3 favor text, ≈1/3 image, ≈1/3 both. |
 
 ---
 

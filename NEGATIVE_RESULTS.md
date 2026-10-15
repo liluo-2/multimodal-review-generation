@@ -36,9 +36,9 @@ Each finding is stated as a claim, followed by the evidence and the mechanism.
 
 ### 4. Modality-specific bottleneck MLP (hard-routing MoE) hurts
 
-**Claim**: Inserting a per-modality bottleneck MLP between the last transformer layer and `lm_head` (`h_out = h + MLP_type(h)`) degrades performance on most dataset × modality cells.
+**Claim**: Inserting a per-modality bottleneck MLP between the last transformer layer and `lm_head` (`h_out = h + MLP_type(h)`) does not help overall: on Arts it improves text-only (ROUGE-2 +17.8%) but sharply hurts img-only (BLEU −43.5%, ROUGE-2 −19.5%); on Sports and Toys it lowers most metrics.
 
-**Evidence**: Multi-dataset, multi-modality comparison. No router, no balancing loss — pure sample-level hard routing by known input type.
+**Evidence**: Arts / Sports / Toys × three scenarios. No router, no balancing loss — pure sample-level hard routing by known input type.
 
 ---
 
@@ -85,6 +85,12 @@ Each finding is stated as a claim, followed by the evidence and the mechanism.
 - Zero content-word overlap with reference: img-only 41.4% vs text 30.0%.
 - Removing CIDEr from reward changes img-only CIDEr by only 0.0008 (hallucination hypothesis falsified).
 - Case-level: errors are *wrong-purpose guesses* (pottery tools classified as jewelry tools), not fabricated brands.
+
+---
+
+### 10. Teacher-guided KD/CE fallback in the GRPO stage (Stage 2) hurts
+
+**Claim**: Augmenting GRPO with on-policy KD from the best teacher (when the student's mean reward is below threshold and a teacher is better) or CE on the reference (otherwise) performs worse than plain GRPO from the same mix-SFT initialization (Arts both BLEU 0.0407 vs 0.0557). A PPO variant with a value model collapsed (both BLEU 0.0114).
 
 ---
 

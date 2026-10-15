@@ -6,6 +6,10 @@
 
 We use three categories: **Arts_Crafts_and_Sewing**, **Sports_and_Outdoors**, **Toys_and_Games**.
 
+## Scenario assignment
+
+Each sample belongs to exactly one input scenario (`both`, `text-only`, `img-only`). Scenario membership was assigned using the data-filtering (modality attribution) experiment: a fine-tuned Qwen2.5-VL generated each review from text only, image only, or both, and the sample was placed in the scenario whose input configuration best explained its review. The three subsets are therefore disjoint and differ in content, so compare models within a scenario, not across scenarios.
+
 ## Expected structure
 
 ```
